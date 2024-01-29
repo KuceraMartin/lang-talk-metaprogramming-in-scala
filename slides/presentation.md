@@ -295,10 +295,11 @@ println(person.name)
 ```
 
 # Závěr
+<div style="margin-top: -2em; width: 65%; float: left">
 - I v compile timu je potřeba řešit type safety
 - Ve Scale lze metaprogramovat bezpečně, ale i nebezpečně
 - další zdroje:
-  - příklady z prezentace
+  - [příklady z prezentace](https://github.com/KuceraMartin/lang-talk-metaprogramming-in-scala/tree/main/examples)
   - [Scala dokumentace](https://docs.scala-lang.org/scala3/reference/metaprogramming/index.html)
   - [Scala 3 Compiler Academy](https://www.youtube.com/@scala3compileracademy/videos)
   - [Implementing a Macro](https://youtu.be/dKblZynnhgo?si=0Lc7x1uv8hpbKoL6) (Scala Days 2023 talk)
@@ -309,4 +310,8 @@ println(person.name)
 
 [martin@mkucera.cz](mailto:martin@mkucera.cz)<br>
 [linkedin.com/in/kuceramartin](https://www.linkedin.com/in/kuceramartin/)
-TODO slidy
+</div>
+<div style="width: 30%; float: right; text-align: center">
+<img src="img/qr.png">
+slidy: [bit.ly/ltmis](https://bit.ly/ltmis)
+</div>
