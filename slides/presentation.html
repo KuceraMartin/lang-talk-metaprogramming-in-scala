@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <meta name="author" content="Martin Kučera @Ematiq">
+  <meta name="dcterms.date" content="2024-01-28">
+  <title>Type-safe- and metaprogramming in Scala</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, minimal-ui">
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@^4//dist/reset.css">
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@^4//dist/reveal.css">
+  <style>
+    .reveal .sourceCode {  /* see #7635 */
+      overflow: visible;
+    }
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/reveal.js@^4//dist/theme/white.css" id="theme">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-light.min.css">
+  <link rel="stylesheet" href="custom.css" />
+</head>
+<body>
+  <div class="reveal">
+    <div class="slides">
+
+<section id="title-slide">
+  <h1 class="title">Type-safe- and metaprogramming in Scala</h1>
+  <p class="author"><a href="mailto:martin@mkucera.cz">Martin Kučera</a>
+@<a href="https://ematiq.com">Ematiq</a></p>
+  <p class="date">January 28, 2024</p>
+</section>
+
+<section id="martin-kučera" class="slide level2">
+<h2>Martin Kučera</h2>
+<ul>
+<li>Bc @ FIT ČVUT</li>
+<li>MSc @ ETH Zürich</li>
+<li>Master’s thesis @ EPFL (Type-safe SQL Queries in Scala)</li>
+<li>Scala developer @ Ematiq</li>
+</ul>
+</section>
+<section id="témata" class="slide level2">
+<h2>Témata</h2>
+<ul>
+<li>metaprogramming overview</li>
+<li>implicits</li>
+<li>match types
+<ul>
+<li>type-safe printf</li>
+</ul></li>
+<li>macros
+<ul>
+<li>type checking Scala code against a database schema</li>
+</ul></li>
+</ul>
+</section>
+<section id="ptejte-se-prosím-průběžně" class="slide level2">
+<h2>Ptejte se prosím průběžně</h2>
+</section>
+<section id="co-se-mi-líbí-na-scale" class="slide level2">
+<h2>Co se mi líbí na Scale</h2>
+<ul>
+<li>hezká v teorii i v praxi</li>
+<li>jednoduchá, ale přitom expresivní</li>
+</ul>
+</section>
+<section id="type-inference" class="slide level2">
+<h2>Type inference</h2>
+<div style="width: 45 %; float: left">
+<pre class="scala"><code>val a: Int = 42
+val l: List[String] =
+  List[String](&quot;Hello&quot;, &quot;world&quot;)</code></pre>
+</div>
+<div style="width: 45%; float: right">
+<pre class="scala"><code>val a = 42
+val l =
+  List(&quot;Hello&quot;, &quot;world&quot;)</code></pre>
+</div>
+</section>
+<section id="term-inference-implicits" class="slide level2">
+<h2>Term inference (implicits)</h2>
+<pre class="scala"><code>trait Serializer[T]:
+  def serialize(x: T): String
+
+def sendToKafka[T](x: T)(using serializer: Serializer[T]):
+  val str = serialzer.serialize(x)
+  // TODO: send str to Kafka</code></pre>
+<div class="fragment">
+<pre class="scala"><code>case class Message(id: Int, author: String, content: String)
+
+given Serializer[Message] = JsonSerializer.derive
+
+val msg = Message(1, &quot;Martin&quot;, &quot;Hello, world!&quot;)
+sendToKafka(msg)/*(given_Serializer_Message)*/</code></pre>
+</div>
+</section>
+<section id="metaprogramování" class="slide level2">
+<h2>Metaprogramování</h2>
+<div class="fragment">
+<p><strong>Co to je</strong></p>
+<p>Metaprogramming is a programming technique in which<br> computer
+programs have the ability to treat other programs<br> as their data.
+(Wikipedia)</p>
+</div>
+<div class="fragment">
+<p><img src="img/metaprogramming.svg"></p>
+</div>
+</section>
+<section id="k-čemu-to-je" class="slide level2">
+<h2>K čemu to je</h2>
+<ul>
+<li>redukování boilerplatu</li>
+<li>rozšíření jazyka</li>
+<li>type safety</li>
+</ul>
+</section>
+<section id="scala-compile-time" class="slide level2">
+<h2>Scala &amp; compile time</h2>
+<ul>
+<li>implicits</li>
+<li>inline functions</li>
+<li>compile time operations</li>
+<li>match types</li>
+<li>mirrors &amp; deriving</li>
+<li>macros
+<ul>
+<li>quotes and splices</li>
+<li>reflection API</li>
+</ul></li>
+</ul>
+</section>
+<section id="proč-nestačí-makra" class="slide level2">
+<h2>Proč nestačí makra?</h2>
+<ul>
+<li>jednoduchost/čitelnost kódu</li>
+<li>type safety!</li>
+</ul>
+<div class="fragment">
+<h3 id="co-se-stane-když-knihovna-používá-makra">Co se stane, když
+knihovna používá makra</h3>
+<p><img src="img/metaprogramming2.svg"></p>
+</div>
+</section>
+<section id="implicits-revisited" class="slide level2">
+<h2>Implicits revisited</h2>
+<div class="fragment">
+<p>Nepřipomíná to Prolog?</p>
+</div>
+<div class="fragment">
+<pre class="scala"><code>sealed trait Num
+case object Zero extends Num
+case class Suc[P &lt;: Num]() extends Num</code></pre>
+</div>
+</section>
+<section class="slide level2">
+
+<pre class="scala"><code>class Plus[A &lt;: Num, B &lt;: Num, Res &lt;: Num]
+
+given Plus[Zero.type, Zero.type, Zero.type] = new Plus
+
+given Plus[A &lt;: Num]: Plus[A, Zero.type, A] = new Plus
+
+given Plus[B &lt;: Num]: Plus[Zero.type, B, B] = new Plus
+
+given Plus[A &lt;: Num, B &lt;: Num, Res &lt;: Num](using Plus[A, B, Res]): Plus[A, Suc[B], Suc[Res]] = new Plus</code></pre>
+</section>
+<section class="slide level2">
+
+<pre class="scala"><code>def sum[A &lt;: Num, B &lt;: Num, Res &lt;: Num](a: A, b: B)(using Plus[A, B, Res]): Res = ???
+
+val one: Suc[Zero.type] = ???
+val two: Suc[Suc[Zero.type]] = ???
+def res = sum(one, two) // Suc[Suc[Suc[Zero.type]]]</code></pre>
+</section>
+<section id="inline-functions" class="slide level2">
+<h2>Inline functions</h2>
+<pre class="scala"><code>inline val DebugMode = true
+
+inline def debug[T](inline s: Any)(inline op: T): T =
+  inline if DebugMode then println(s.toString)
+  op</code></pre>
+</section>
+<section id="type-level-programming" class="slide level2">
+<h2>Type-level programming</h2>
+<pre class="scala"><code>import scala.compiletime.ops.int.*
+
+val a: 1 = 1
+val b: 2 = 2
+val c: a.type + b.type = 3</code></pre>
+</section>
+<section class="slide level2">
+
+<pre class="scala"><code>type Square[X &lt;: Int] = X * X
+val a: 10 = 10
+val b: Square[a.type] = 100</code></pre>
+</section>
+<section id="match-types" class="slide level2">
+<h2>Match types</h2>
+<pre class="scala"><code>type Elem[X] = X match
+  case String =&gt; Char
+  case Array[t] =&gt; t
+  case Iterable[t] =&gt; t</code></pre>
+<div class="fragment">
+<pre class="scala"><code>val xs: List[Int] = ???
+val x: Elem[xs.type] = 123</code></pre>
+</div>
+</section>
+<section id="demo-type-safe-printf" class="slide level2">
+<h2>Demo: type-safe printf</h2>
+<p>Chceme:</p>
+<pre class="scala"><code>def printf(s: String)(args: ArgsType[s.type]): Unit</code></pre>
+</section>
+<section id="macros" class="slide level2">
+<h2>Macros</h2>
+<pre class="scala"><code>import scala.quoted.*
+
+object Macro:
+  inline def hello: String =
+    ${ helloImpl }
+
+  private def helloImpl(using Quotes): Expr[String] =
+    &#39;{ &quot;Hello, world!&quot; }</code></pre>
+<div class="fragment">
+<pre class="scala"><code>println(Macro.macro) // Hello, world!</code></pre>
+</div>
+</section>
+<section id="quotes-and-splices" class="slide level2">
+<h2>Quotes and splices</h2>
+<p>quotes: delay execution</p>
+<pre class="scala"><code>&#39;{ () /* can be arbitrary scala code */ }: Expr[Unit]</code></pre>
+<p>splices: evaluate, insert into quotes</p>
+<pre class="scala"><code>${ () /* can be arbitrary scala code */ }: Unit</code></pre>
+</section>
+<section class="slide level2">
+
+<pre class="scala"><code>def unrolledPowerImpl(x: Expr[Double], n: Int)(using Quotes): Expr[Double] =
+  if n == 0 then &#39;{ 1.0 }
+  else if n == 1 then x
+  else &#39;{ $x * ${ unrolledPowerImpl(x, n - 1) } }</code></pre>
+</section>
+<section id="reflection-api" class="slide level2">
+<h2>Reflection API</h2>
+<p>Dovoluje nám pracovat přímo s AST</p>
+<pre class="scala"><code>def showAstImpl[T](x: Expr[T])(using Type[T])(using Quotes): Expr[T] =
+    import quotes.reflect.*
+
+    val term = x.asTerm
+    val tpe = TypeRepr.of[T]
+
+    println(term)
+    println(tpe)
+
+    term.asExprOf[T]</code></pre>
+</section>
+<section id="databázová-knihovna" class="slide level2">
+<h2>Databázová knihovna</h2>
+<p>cíl:</p>
+<pre class="scala"><code>def selectFrom(tableName: String, limit: Int): Iterator[?]
+
+val res = selectFrom(&quot;artists&quot;, 10)
+for row &lt;- res do
+  println(artist.name) // ok
+  println(artist.skhgjs) // error: column skhgjs does not exist</code></pre>
+</section>
+<section id="structural-types" class="slide level2">
+<h2>Structural types</h2>
+<pre class="scala"><code>class Record(fields: Map[String, Any]) extends Selectable:
+  def selectDynamic(name: String): Any = fields(name)
+
+
+
+
+
+
+
+</code></pre>
+</section>
+<section id="structural-types-1" class="slide level2">
+<h2>Structural types</h2>
+<pre class="scala"><code>class Record(fields: Map[String, Any]) extends Selectable:
+  def selectDynamic(name: String): Any = fields(name)
+
+val person = Record(Map(
+    &quot;name&quot; -&gt; &quot;Emma&quot;,
+    &quot;age&quot; -&gt; 42,
+  ))
+
+println(person.name)</code></pre>
+</section>
+<section id="structural-types-2" class="slide level2">
+<h2>Structural types</h2>
+<pre class="scala"><code>class Record(fields: Map[String, Any]) extends Selectable:
+  def selectDynamic(name: String): Any = fields(name)
+
+val person = Record(Map(
+    &quot;name&quot; -&gt; &quot;Emma&quot;,
+    &quot;age&quot; -&gt; 42,
+  )).asInstanceOf[Record &amp; { val name: String; val age: Int }]
+
+println(person.name)</code></pre>
+</section>
+<section id="závěr" class="slide level2">
+<h2>Závěr</h2>
+<ul>
+<li>I v compile timu je potřeba řešit type safety</li>
+<li>Ve Scale lze metaprogramovat bezpečně, ale i nebezpečně</li>
+<li>další zdroje:
+<ul>
+<li>příklady z prezentace</li>
+<li><a
+href="https://docs.scala-lang.org/scala3/reference/metaprogramming/index.html">Scala
+dokumentace</a></li>
+<li><a
+href="https://www.youtube.com/@scala3compileracademy/videos">Scala 3
+Compiler Academy</a></li>
+<li><a
+href="https://youtu.be/dKblZynnhgo?si=0Lc7x1uv8hpbKoL6">Implementing a
+Macro</a> (Scala Days 2023 talk)</li>
+<li>existující projekty:
+<ul>
+<li><a href="https://github.com/softwaremill/magnolia">Magnolia</a></li>
+<li><a href="https://github.com/com-lihaoyi/upickle">upickle</a></li>
+<li><a
+href="https://github.com/plokhotnyuk/jsoniter-scala">jsoniter-scala</a></li>
+</ul></li>
+</ul></li>
+</ul>
+<p><a href="mailto:martin@mkucera.cz">martin@mkucera.cz</a><br> <a
+href="https://www.linkedin.com/in/kuceramartin/">linkedin.com/in/kuceramartin</a>
+TODO slidy</p>
+</section>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/reveal.js@^4//dist/reveal.js"></script>
+
+  <!-- reveal.js plugins -->
+  <script src="https://unpkg.com/reveal.js@^4//plugin/notes/notes.js"></script>
+  <script src="https://unpkg.com/reveal.js@^4//plugin/search/search.js"></script>
+  <script src="https://unpkg.com/reveal.js@^4//plugin/zoom/zoom.js"></script>
+
+  <script>
+
+      // Full list of configuration options available at:
+      // https://revealjs.com/config/
+      Reveal.initialize({
+        // Display controls in the bottom right corner
+        controls: true,
+
+        // Help the user learn the controls by providing hints, for example by
+        // bouncing the down arrow when they first encounter a vertical slide
+        controlsTutorial: true,
+
+        // Determines where controls appear, "edges" or "bottom-right"
+        controlsLayout: 'bottom-right',
+
+        // Visibility rule for backwards navigation arrows; "faded", "hidden"
+        // or "visible"
+        controlsBackArrows: 'faded',
+
+        // Display a presentation progress bar
+        progress: true,
+
+        // Display the page number of the current slide
+        slideNumber: false,
+
+        // 'all', 'print', or 'speaker'
+        showSlideNumber: 'all',
+
+        // Add the current slide number to the URL hash so that reloading the
+        // page/copying the URL will return you to the same slide
+        hash: true,
+
+        // Start with 1 for the hash rather than 0
+        hashOneBasedIndex: false,
+
+        // Flags if we should monitor the hash and change slides accordingly
+        respondToHashChanges: true,
+
+        // Push each slide change to the browser history
+        history: true,
+
+        // Enable keyboard shortcuts for navigation
+        keyboard: true,
+
+        // Enable the slide overview mode
+        overview: true,
+
+        // Disables the default reveal.js slide layout (scaling and centering)
+        // so that you can use custom CSS layout
+        disableLayout: false,
+
+        // Vertical centering of slides
+        center: true,
+
+        // Enables touch navigation on devices with touch input
+        touch: true,
+
+        // Loop the presentation
+        loop: false,
+
+        // Change the presentation direction to be RTL
+        rtl: false,
+
+        // see https://revealjs.com/vertical-slides/#navigation-mode
+        navigationMode: 'default',
+
+        // Randomizes the order of slides each time the presentation loads
+        shuffle: false,
+
+        // Turns fragments on and off globally
+        fragments: true,
+
+        // Flags whether to include the current fragment in the URL,
+        // so that reloading brings you to the same fragment position
+        fragmentInURL: true,
+
+        // Flags if the presentation is running in an embedded mode,
+        // i.e. contained within a limited portion of the screen
+        embedded: false,
+
+        // Flags if we should show a help overlay when the questionmark
+        // key is pressed
+        help: true,
+
+        // Flags if it should be possible to pause the presentation (blackout)
+        pause: true,
+
+        // Flags if speaker notes should be visible to all viewers
+        showNotes: false,
+
+        // Global override for autoplaying embedded media (null/true/false)
+        autoPlayMedia: null,
+
+        // Global override for preloading lazy-loaded iframes (null/true/false)
+        preloadIframes: null,
+
+        // Number of milliseconds between automatically proceeding to the
+        // next slide, disabled when set to 0, this value can be overwritten
+        // by using a data-autoslide attribute on your slides
+        autoSlide: 0,
+
+        // Stop auto-sliding after user input
+        autoSlideStoppable: true,
+
+        // Use this method for navigation when auto-sliding
+        autoSlideMethod: null,
+
+        // Specify the average time in seconds that you think you will spend
+        // presenting each slide. This is used to show a pacing timer in the
+        // speaker view
+        defaultTiming: null,
+
+        // Enable slide navigation via mouse wheel
+        mouseWheel: false,
+
+        // The display mode that will be used to show slides
+        display: 'block',
+
+        // Hide cursor if inactive
+        hideInactiveCursor: true,
+
+        // Time before the cursor is hidden (in ms)
+        hideCursorTime: 5000,
+
+        // Opens links in an iframe preview overlay
+        previewLinks: false,
+
+        // Transition style (none/fade/slide/convex/concave/zoom)
+        transition: 'none',
+
+        // Transition speed (default/fast/slow)
+        transitionSpeed: 'default',
+
+        // Transition style for full page slide backgrounds
+        // (none/fade/slide/convex/concave/zoom)
+        backgroundTransition: 'fade',
+
+        // Number of slides away from the current that are visible
+        viewDistance: 3,
+
+        // Number of slides away from the current that are visible on mobile
+        // devices. It is advisable to set this to a lower number than
+        // viewDistance in order to save resources.
+        mobileViewDistance: 2,
+
+        // The "normal" size of the presentation, aspect ratio will be preserved
+        // when the presentation is scaled to fit different resolutions. Can be
+        // specified using percentage units.
+        width: 1200,
+
+        height: 675,
+
+        // Factor of the display size that should remain empty around the content
+        margin: 0.14,
+
+        // reveal.js plugins
+        plugins: [
+          RevealNotes,
+          RevealSearch,
+          RevealZoom
+        ]
+      });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/scala.min.js"></script><script>hljs.highlightAll();</script>
+    </body>
+</html>
